@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
 import requests
 import base64
 import pandas as pd
@@ -55,7 +55,7 @@ class CodeConverter:
         code_str = str(code).strip().lower()
         if code_str.startswith('hk'):
             return code_str[2:]  # 保留前导零，如 09988
-        elif code_str.endswith('.xshe') or code_str.endswith('.xshg'):
+        elif code_str.endswith('.xshe') or code_str.endswith('.xshg') or code_str.endswith('.XSHG') or code_str.endswith('.XSHE'):
             return code_str[:6]
         elif '.' in code_str:
             return code_str.split('.')[0]
@@ -65,9 +65,9 @@ class CodeConverter:
     def get_ak_type(code):
         """判断 AKShare 类型: A股 / HK / B股"""
         pure_code = CodeConverter.to_ak(code)
-        if pure_code.startswith('0') or pure_code.startswith('9'):
+        if len(pure_code) in (5, 4):
             return 'HK'
-        elif pure_code.startswith('9') and pure_code.endswith(('0', '1')):
+        elif pure_code.startswith('s'):
             return 'B'
         return 'A'
 
@@ -112,16 +112,19 @@ def get_ak_prices(codes):
     yesterday_str = (datetime.now() - timedelta(days=1)).strftime('%Y%m%d')
 
     # 2. 按组批量请求数据
-    # --- A股市场 ---
+     # --- A股市场 ---
     if stock_groups['A']:
+
         try:
             # ak.stock_zh_a_hist 支持传入代码列表
-            df_a = ak.stock_zh_a_hist(symbol=stock_groups['A'], period="daily", start_date=yesterday_str, end_date=yesterday_str, adjust="qfq")
+            df_a = ak.stock_zh_a_spot_em()
+            df_a = df_a.loc[df_a['代码'].isin(stock_groups['A'])]
+            print(df_a)
             if not df_a.empty:
                 for _, row in df_a.iterrows():
                     all_results.append({
                         'code': row['代码'],
-                        'close': float(row['收盘']),
+                        'close': float(row['昨收']),
                         'date': yesterday_str
                     })
         except Exception as e:
@@ -131,56 +134,39 @@ def get_ak_prices(codes):
     if stock_groups['HK']:
         try:
             # ak.stock_hk_hist 同样支持列表
-            df_hk = ak.stock_hk_hist(symbol=stock_groups['HK'], period="daily", start_date=yesterday_str, end_date=yesterday_str, adjust="qfq")
+            df_hk = ak.stock_hk_famous_spot_em()
+            df_hk = df_hk.loc[df_hk['代码'].isin(stock_groups['HK'])]
             if not df_hk.empty:
                 for _, row in df_hk.iterrows():
                     all_results.append({
                         'code': row['代码'],
-                        'close': float(row['收盘']),
+                        'close': float(row['昨收']),
                         'date': yesterday_str
                     })
         except Exception as e:
             print(f"⚠️ AKShare 港股批量获取失败: {e}")
-
+    print(all_results)
     # --- B股市场 ---
     # 注意：AKShare的B股接口可能不支持列表，如果失败则回退到单只获取
     if stock_groups['B']:
+
         try:
-            df_b = ak.stock_zh_a_hist(symbol=stock_groups['B'], period="daily", start_date=yesterday_str, end_date=yesterday_str, adjust="qfq")
+            df_b = ak.stock_zh_b_spot_em()
+            df_b = df_b.loc[df_b['代码'].isin(stock_groups['B'])]
             if not df_b.empty:
                 for _, row in df_b.iterrows():
                     all_results.append({
                         'code': row['代码'],
-                        'close': float(row['收盘']),
+                        'close': float(row['昨收']),
                         'date': yesterday_str
                     })
-        except Exception:
-            # 如果批量失败，则对B股进行单只获取作为备选方案
-            print("⚠️ AKShare B股批量获取失败，正在切换为单只获取...")
-            for code in stock_groups['B']:
-                try:
-                    df = ak.stock_zh_a_hist(symbol=code, period="daily", start_date=yesterday_str, end_date=yesterday_str, adjust="qfq")
-                    if not df.empty:
-                        all_results.append({
-                            'code': code,
-                            'close': float(df.iloc[-1]['收盘']),
-                            'date': yesterday_str
-                        })
-                except Exception as e:
-                    print(f"AKShare 获取B股 {code} 失败: {e}")
-
+        except Exception as e:
+            print(f"AKShare 获取B股 {code} 失败: {e}")
+    print(all_results)
     return pd.DataFrame(all_results)
 
 def get_market_prices(code_list):
-    if not code_list: return pd.DataFrame()
-    try:
-        print("🔄 尝试 yfinance...")
-        df = get_yf_prices(code_list)
-        if not df.empty and len(df) >= len(code_list) * 0.8:
-            print("✅ yfinance 成功")
-            return df
-    except Exception as e:
-        print(f"⚠️ yfinance 异常: {e}")
+    if not code_list: return pd.DataFrame()   
 
     print("🔄 切换至 AKShare...")
     df_ak = get_ak_prices(code_list)
@@ -216,7 +202,7 @@ def analyze_pool(excel_path):
     df['sig'] = np.where(df['close'] < df['加仓点'], 1, np.where(df['close'] > df['回踩点'], 2, 0))
     df['亏损金额'] = (df['close'] - df['成本价格']) * df['数量']
 
-    cols = ['sig', '代码', '标的', 'close', '加仓点', '回踩点', '亏损金额']
+    cols = ['sig', '代码',  'close'] #'标的',
     result = df[[c for c in cols if c in df.columns]].sort_values('sig', ascending=False)
     return result.to_string(index=False)
 
@@ -234,10 +220,14 @@ def update_github_file(path, content, message):
 
 
 if __name__ == '__main__':
+
     print("🚀 开始执行每日股票分析任务...")
     try:
-        report = f"📈 每日盯盘报告 ({datetime.now().strftime('%Y-%m-%d')})"
-        report += "【观察池规则监控】"
+        report = f"📈 每日盯盘报告 ({datetime.now().strftime('%Y-%m-%d')})
+
+"
+        report += "【观察池规则监控】
+"
         # 注意：在 GitHub Actions 环境中，你需要确保 '观察池.xlsx' 文件也在仓库里
         report += analyze_pool('观察池.xlsx')
         send_wecom(report)
