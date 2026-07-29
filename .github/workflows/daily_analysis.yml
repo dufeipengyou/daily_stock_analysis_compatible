@@ -1,30 +1,26 @@
-name: Daily Stock Analysis Compatible
+name: Daily Stock Dual-Engine Analysis
 
 on:
   schedule:
-    - cron: '0 10 * * 1-5'  # 工作日 UTC 10:00 (北京时间 18:00)
-  workflow_dispatch:  # 允许手动触发
+    - cron: '0 0 * * 1-5'  # 工作日北京时间 08:00 (UTC 00:00) 自动运行
+  workflow_dispatch:
 
 jobs:
-  analyze:
+  rule_monitor:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Custom Repo
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
-      - name: Install dependencies
-        run: |
-          pip install pandas numpy requests openpyxl xlrd
+      - name: Install Dependencies
+        run: pip install pandas numpy requests openpyxl xlrd yfinance akshare
 
-      - name: Run Analysis
+      - name: Run Rule-Based Monitor
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
-          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
           WECOM_WEBHOOK_URL: ${{ secrets.WECOM_WEBHOOK_URL }}
-          STOCK_LIST_AI: ${{ secrets.STOCK_LIST_AI }}
         run: python main.py
