@@ -194,7 +194,7 @@ def analyze_pool(excel_path):
     df = pd.read_excel(excel_path)
     stock_prices = get_market_prices(df['代码'].unique().tolist())
     if stock_prices.empty: return "❌ 未获取到行情数据"
-
+    df['代码'] = df['代码'].apply(lambda x: CodeConverter.to_ak(x))
     df = df.merge(stock_prices, left_on='代码', right_on='code', how='left')
     for col in ['close', '加仓点', '回踩点', '成本价格', '数量']:
         df[col] = pd.to_numeric(df.get(col, np.nan), errors='coerce')
