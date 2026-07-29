@@ -29,4 +29,6 @@ jobs:
           OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
           WECOM_WEBHOOK_URL: ${{ secrets.WECOM_WEBHOOK_URL }}
           STOCK_LIST_AI: ${{ secrets.STOCK_LIST_AI }}
+          # 👇 新增这一行
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python main.py
