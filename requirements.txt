@@ -1,0 +1,16 @@
+# 核心数据处理
+pandas>=1.5.0
+numpy>=1.21.0
+openpyxl>=3.0.0  # 用于读取 Excel 文件 (pd.read_excel)
+
+# 网络请求与API交互
+requests>=2.28.0
+
+# 金融数据源
+yfinance>=0.2.18 # Yahoo Finance 数据接口
+akshare>=1.10.0  # AKShare 开源财经数据接口 (A股/港股等)
+
+# 工具库
+beautifulsoup4>=4.11.0 # akshare 部分功能依赖
+html5lib>=1.1          # akshare 部分功能依赖
+lxml>=4.9.0            # 加速 XML/HTML 解析
