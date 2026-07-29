@@ -234,14 +234,10 @@ def update_github_file(path, content, message):
 
 
 if __name__ == '__main__':
-
     print("🚀 开始执行每日股票分析任务...")
     try:
-        report = f"📈 每日盯盘报告 ({datetime.now().strftime('%Y-%m-%d')})
-
-"
-        report += "【观察池规则监控】
-"
+        report = f"📈 每日盯盘报告 ({datetime.now().strftime('%Y-%m-%d')})"
+        report += "【观察池规则监控】"
         # 注意：在 GitHub Actions 环境中，你需要确保 '观察池.xlsx' 文件也在仓库里
         report += analyze_pool('观察池.xlsx')
         send_wecom(report)
